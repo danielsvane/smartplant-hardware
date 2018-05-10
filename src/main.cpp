@@ -5,7 +5,7 @@
 
    Create a BLE server that, once we receive a connection, will send periodic notifications.
    The service advertises itself as: 6E400001-B5A3-F393-E0A9-E50E24DCCA9E
-   Has a characteristic of: 6E400002-B5A3-F393-E0A9-E50E24DCCA9E - used for receiving data with "WRITE" 
+   Has a characteristic of: 6E400002-B5A3-F393-E0A9-E50E24DCCA9E - used for receiving data with "WRITE"
    Has a characteristic of: 6E400003-B5A3-F393-E0A9-E50E24DCCA9E - used to send data with  "NOTIFY"
 
    The design of creating the BLE server is:
@@ -17,7 +17,7 @@
    6. Start advertising.
 
    In this example rxValue is the data received (only accessible inside that function).
-   And txValue is the data to be sent, in this example just a byte incremented every second. 
+   And txValue is the data to be sent, in this example just a byte incremented every second.
 */
 #include <Arduino.h>
 #include <BLEDevice.h>
@@ -65,7 +65,7 @@ class MyCallbacks: public BLECharacteristicCallbacks {
         Serial.println();
 
         // Do stuff based on the command received from the app
-        if (rxValue.find("A") != -1) { 
+        if (rxValue.find("A") != -1) {
           Serial.println("Turning ON!");
           digitalWrite(LED, HIGH);
         }
@@ -86,7 +86,7 @@ void setup() {
   pinMode(LED, OUTPUT);
 
   // Create the BLE Device
-  BLEDevice::init("ESP32 UART Test"); // Give it a name
+  BLEDevice::init("Smartplant"); // Give it a name
 
   // Create the BLE Server
   BLEServer *pServer = BLEDevice::createServer();
@@ -100,7 +100,7 @@ void setup() {
                       CHARACTERISTIC_UUID_TX,
                       BLECharacteristic::PROPERTY_NOTIFY
                     );
-                      
+
   pCharacteristic->addDescriptor(new BLE2902());
 
   BLECharacteristic *pCharacteristic = pService->createCharacteristic(
@@ -126,11 +126,11 @@ void loop() {
     // Let's convert the value to a char array:
     char txString[8]; // make sure this is big enuffz
     dtostrf(txValue, 1, 2, txString); // float_val, min_width, digits_after_decimal, char_buffer
-    
+
 //    pCharacteristic->setValue(&txValue, 1); // To send the integer value
 //    pCharacteristic->setValue("Hello!"); // Sending a test message
     pCharacteristic->setValue(txString);
-    
+
     pCharacteristic->notify(); // Send the value to the app!
     Serial.print("*** Sent Value: ");
     Serial.print(txString);
@@ -140,7 +140,7 @@ void loop() {
     // if you set "rxValue" as a global var at the top!
     // Note you will have to delete "std::string" declaration
     // of "rxValue" in the callback function.
-//    if (rxValue.find("A") != -1) { 
+//    if (rxValue.find("A") != -1) {
 //      Serial.println("Turning ON!");
 //      digitalWrite(LED, HIGH);
 //    }
@@ -149,5 +149,5 @@ void loop() {
 //      digitalWrite(LED, LOW);
 //    }
   }
-  delay(1000);
+  delay(5000);
 }
