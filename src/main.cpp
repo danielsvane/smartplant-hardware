@@ -24,12 +24,15 @@
 #include <BLEServer.h>
 #include <BLEUtils.h>
 #include <BLE2902.h>
+#include <EepromUtil.h>
 
 BLECharacteristic *pCharacteristic;
 bool deviceConnected = false;
 float txValue = 0;
 const int readPin = 32; // Use GPIO number. See ESP32 board pinouts
 const int LED = 2; // Could be different depending on the dev board. I used the DOIT ESP32 dev board.
+
+char buf[50];
 
 //std::string rxValue; // Could also make this a global var to access it in loop()
 
@@ -50,6 +53,14 @@ class MyServerCallbacks: public BLEServerCallbacks {
     }
 };
 
+
+void printString(std::string value) {
+  for (int i = 0; i < value.length(); i++) {
+    Serial.print(value[i]);
+  }
+  Serial.println();
+};
+
 class MyCallbacks: public BLECharacteristicCallbacks {
     void onWrite(BLECharacteristic *pCharacteristic) {
       std::string rxValue = pCharacteristic->getValue();
@@ -58,20 +69,35 @@ class MyCallbacks: public BLECharacteristicCallbacks {
         Serial.println("*********");
         Serial.print("Received Value: ");
 
-        for (int i = 0; i < rxValue.length(); i++) {
-          Serial.print(rxValue[i]);
-        }
-
-        Serial.println();
+        printString(rxValue);
 
         // Do stuff based on the command received from the app
-        if (rxValue.find("A") != -1) {
-          Serial.println("Turning ON!");
-          digitalWrite(LED, HIGH);
+        if (rxValue.find("ssid") != -1) {
+          Serial.println("received ssid");
+          rxValue.erase(0, 4);
+          // printString(rxValue);
+          // EEPROM.put(0, rxValue);
+          strcpy(buf, "lolpls");
+          Serial.println(buf);
+          EepromUtil::eeprom_write_string(0, buf);
         }
-        else if (rxValue.find("B") != -1) {
-          Serial.println("Turning OFF!");
-          digitalWrite(LED, LOW);
+        else if (rxValue.find("pass") != -1) {
+          Serial.println("received pass");
+          // rxValue.erase(0, 4);
+          // Serial.println("received pass");
+          // EEPROM.put(0, data);
+          printString(rxValue);
+        }
+        else if (rxValue.find("read") != -1) {
+          Serial.println("reading eeprom");
+          // std::string foo;
+          // EEPROM.get(0, foo);
+          EepromUtil::eeprom_read_string(0, buf, 50);
+          // rxValue.erase(0, 4);
+          // Serial.println("received pass");
+          // EEPROM.put(0, data);
+          // printString(buf);
+          Serial.println(buf);
         }
 
         Serial.println();
