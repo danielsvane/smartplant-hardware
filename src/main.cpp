@@ -24,8 +24,19 @@
 #include <BLEServer.h>
 #include <BLEUtils.h>
 #include <BLE2902.h>
-#include <EepromUtil.h>
+#include <EEPROM.h>
 
+#define EEPROM_SIZE 64
+
+struct WifiSettings {
+  char ssid[32];
+  char password[32];
+};
+
+char ssid[32];
+char password[32];
+
+int incomingByte = 0;
 BLECharacteristic *pCharacteristic;
 bool deviceConnected = false;
 float txValue = 0;
@@ -53,6 +64,15 @@ class MyServerCallbacks: public BLEServerCallbacks {
     }
 };
 
+void saveSettings() {
+  WifiSettings settings;
+
+  strcpy(settings.ssid, ssid);
+  strcpy(settings.password, password);
+
+  EEPROM.put(0, settings);
+  EEPROM.commit();
+};
 
 void printString(std::string value) {
   for (int i = 0; i < value.length(); i++) {
@@ -71,33 +91,28 @@ class MyCallbacks: public BLECharacteristicCallbacks {
 
         printString(rxValue);
 
-        // Do stuff based on the command received from the app
         if (rxValue.find("ssid") != -1) {
           Serial.println("received ssid");
           rxValue.erase(0, 4);
-          // printString(rxValue);
-          // EEPROM.put(0, rxValue);
-          strcpy(buf, "lolpls");
-          Serial.println(buf);
-          EepromUtil::eeprom_write_string(0, buf);
+          strcpy(ssid, rxValue.c_str());
+          printString(rxValue);
         }
         else if (rxValue.find("pass") != -1) {
           Serial.println("received pass");
-          // rxValue.erase(0, 4);
-          // Serial.println("received pass");
-          // EEPROM.put(0, data);
+          rxValue.erase(0, 4);
+          strcpy(password, rxValue.c_str());
           printString(rxValue);
+
+          saveSettings();
         }
         else if (rxValue.find("read") != -1) {
           Serial.println("reading eeprom");
-          // std::string foo;
-          // EEPROM.get(0, foo);
-          EepromUtil::eeprom_read_string(0, buf, 50);
-          // rxValue.erase(0, 4);
-          // Serial.println("received pass");
-          // EEPROM.put(0, data);
-          // printString(buf);
-          Serial.println(buf);
+
+          WifiSettings settings;
+
+          EEPROM.get(0, settings);
+          Serial.println(settings.ssid);
+          Serial.println(settings.password);
         }
 
         Serial.println();
@@ -108,6 +123,11 @@ class MyCallbacks: public BLECharacteristicCallbacks {
 
 void setup() {
   Serial.begin(115200);
+
+  if (!EEPROM.begin(EEPROM_SIZE))
+  {
+    Serial.println("failed to initialise EEPROM"); delay(1000000);
+  }
 
   pinMode(LED, OUTPUT);
 
@@ -145,35 +165,54 @@ void setup() {
 }
 
 void loop() {
-  if (deviceConnected) {
-    // Fabricate some arbitrary junk for now...
-    txValue = analogRead(readPin) / 3.456; // This could be an actual sensor reading!
+  if (Serial.available() > 0) {
+    // read the incoming byte:
+    incomingByte = Serial.read();
 
-    // Let's convert the value to a char array:
-    char txString[8]; // make sure this is big enuffz
-    dtostrf(txValue, 1, 2, txString); // float_val, min_width, digits_after_decimal, char_buffer
+    // say what you got:
+    Serial.print("I received: ");
+    Serial.println(incomingByte, DEC);
 
-//    pCharacteristic->setValue(&txValue, 1); // To send the integer value
-//    pCharacteristic->setValue("Hello!"); // Sending a test message
-    pCharacteristic->setValue(txString);
+    if (incomingByte == 97) {
+      WifiSettings settings = {
+        "longtest",
+        "mypassword"
+      };
+      // Settings settings = {
+      //   "test"
+      // };
 
-    pCharacteristic->notify(); // Send the value to the app!
-    Serial.print("*** Sent Value: ");
-    Serial.print(txString);
-    Serial.println(" ***");
+      // int val = byte(random(10020));
+      // write the value to the appropriate byte of the EEPROM.
+      // these values will remain there when the board is
+      // turned off.
+      EEPROM.put(0, settings);
+      EEPROM.commit();
 
-    // You can add the rxValue checks down here instead
-    // if you set "rxValue" as a global var at the top!
-    // Note you will have to delete "std::string" declaration
-    // of "rxValue" in the callback function.
-//    if (rxValue.find("A") != -1) {
-//      Serial.println("Turning ON!");
-//      digitalWrite(LED, HIGH);
-//    }
-//    else if (rxValue.find("B") != -1) {
-//      Serial.println("Turning OFF!");
-//      digitalWrite(LED, LOW);
-//    }
+      Serial.println("Added settings to EEPROM");
+      Serial.println(settings.ssid);
+      // Serial.println(settings.password);
+    }
+
+    if (incomingByte == 103) {
+      // Settings settings;
+      // byte lol;
+      WifiSettings settings;
+      // lol = EEPROM.read(0);
+      Serial.println("Loaded settings from EEPROM");
+      // int i;
+      // for (i = 0; i < 5; i++) {
+      //   Serial.println(settings.ssid[i]);
+      // }
+      // Serial.print(lol, DEC);
+      // Serial.println();
+
+      EEPROM.get(0, settings);
+      Serial.println(settings.ssid);
+      Serial.println(settings.password);
+
+      // Serial.print(byte(EEPROM.read(0)));
+      // Serial.println();
+    }
   }
-  delay(5000);
 }
