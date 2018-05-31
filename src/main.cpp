@@ -26,6 +26,10 @@
 #include <BLEUtils.h>
 #include <BLE2902.h>
 #include <EEPROM.h>
+#include <queue>
+
+using std::string;
+using std::queue;
 
 #define EEPROM_SIZE 64
 
@@ -38,6 +42,8 @@ char ssid[32];
 char password[32];
 
 BLECharacteristic *pCharacteristic;
+
+queue<string> messageQueue;
 
 #define SERVICE_UUID           "6E400001-B5A3-F393-E0A9-E50E24DCCA9E"
 #define CHARACTERISTIC_UUID_RX "6E400002-B5A3-F393-E0A9-E50E24DCCA9E"
@@ -53,7 +59,7 @@ void saveSettings() {
   EEPROM.commit();
 };
 
-void printString(std::string value) {
+void printString(string value) {
   for (int i = 0; i < value.length(); i++) {
     Serial.print(value[i]);
   }
@@ -62,7 +68,7 @@ void printString(std::string value) {
 
 class Callbacks: public BLECharacteristicCallbacks {
     void onWrite(BLECharacteristic *pCharacteristic) {
-      std::string rxValue = pCharacteristic->getValue();
+      string rxValue = pCharacteristic->getValue();
 
       if (rxValue.length() > 0) {
         Serial.println("Received message");
@@ -84,6 +90,8 @@ class Callbacks: public BLECharacteristicCallbacks {
           saveSettings();
 
           Serial.println("Saved settings");
+
+          messageQueue.push("ssav");
         }
       }
     }
@@ -108,9 +116,9 @@ void setup() {
 
   // Create a BLE Characteristic
   pCharacteristic = pService->createCharacteristic(
-                      CHARACTERISTIC_UUID_TX,
-                      BLECharacteristic::PROPERTY_NOTIFY
-                    );
+    CHARACTERISTIC_UUID_TX,
+    BLECharacteristic::PROPERTY_NOTIFY
+  );
 
   pCharacteristic->addDescriptor(new BLE2902());
 
@@ -130,4 +138,16 @@ void setup() {
 }
 
 void loop() {
+  if (!messageQueue.empty()) {
+    // for (int i = 0; i < messageQueue.size(); i++) {
+    Serial.println("Value from message queue:");
+    Serial.println(messageQueue.front().c_str());
+
+    pCharacteristic->setValue(messageQueue.front());
+    pCharacteristic->notify();
+
+    messageQueue.pop();
+
+  }
+  delay(1000);
 }
