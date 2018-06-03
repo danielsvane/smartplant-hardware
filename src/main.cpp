@@ -21,12 +21,13 @@
 */
 
 #include <Arduino.h>
-#include <BLEDevice.h>
-#include <BLEServer.h>
-#include <BLEUtils.h>
-#include <BLE2902.h>
+ #include <BLEDevice.h>
+ #include <BLEUtils.h>
+ #include <BLE2902.h>
 #include <EEPROM.h>
 #include <queue>
+#include <WiFi.h>
+#include <IOXhop_FirebaseESP32.h>
 
 using std::string;
 using std::queue;
@@ -38,71 +39,98 @@ struct WifiSettings {
   char password[32];
 };
 
-char ssid[32];
-char password[32];
+int mode = 1; // bluetooth mode
 
-BLECharacteristic *pCharacteristic;
+// char ssid[32];
+// char password[32];
 
-queue<string> messageQueue;
+ BLECharacteristic *pCharacteristic;
 
-#define SERVICE_UUID           "6E400001-B5A3-F393-E0A9-E50E24DCCA9E"
-#define CHARACTERISTIC_UUID_RX "6E400002-B5A3-F393-E0A9-E50E24DCCA9E"
-#define CHARACTERISTIC_UUID_TX "6E400003-B5A3-F393-E0A9-E50E24DCCA9E"
+ // queue<string> messageQueue;
+ //
+ // WiFiClientSecure client;
 
-void saveSettings() {
-  WifiSettings settings;
+ #define SERVICE_UUID           "6E400001-B5A3-F393-E0A9-E50E24DCCA9E"
+ #define CHARACTERISTIC_UUID_RX "6E400002-B5A3-F393-E0A9-E50E24DCCA9E"
+ // #define CHARACTERISTIC_UUID_TX "6E400003-B5A3-F393-E0A9-E50E24DCCA9E"
 
-  strcpy(settings.ssid, ssid);
-  strcpy(settings.password, password);
+ char const *ssid = "kanel28trick65rabat";
+ char const *password = "f495bcabd22133098862e7f760";
 
-  EEPROM.put(0, settings);
-  EEPROM.commit();
-};
+ const char *host = "api.github.com";
+ const int httpsPort = 443;
 
-void printString(string value) {
-  for (int i = 0; i < value.length(); i++) {
-    Serial.print(value[i]);
+ // Use web browser to view and copy
+ // SHA1 fingerprint of the certificate
+ const char* fingerprint = "B8 4F 40 70 0C 63 90 E0 07 E8 7D BD B4 11 D0 4A EA 9C 90 F6";
+
+
+ void saveSettings() {
+   WifiSettings settings;
+
+   strcpy(settings.ssid, ssid);
+   strcpy(settings.password, password);
+
+   EEPROM.put(0, settings);
+   EEPROM.commit();
+ };
+
+ void printString(string value) {
+   for (int i = 0; i < value.length(); i++) {
+     Serial.print(value[i]);
+   }
+   Serial.println();
+ };
+
+void setupWifi() {
+  WiFi.begin(ssid, password);
+
+  Serial.print(F("Connecting to "));
+  Serial.print(ssid);
+  while (WiFi.status() != WL_CONNECTED) {
+    Serial.print(".");
+    delay(1000);
   }
   Serial.println();
-};
 
-class Callbacks: public BLECharacteristicCallbacks {
-    void onWrite(BLECharacteristic *pCharacteristic) {
-      string rxValue = pCharacteristic->getValue();
+  Serial.println(F("Connected to the WiFi network"));
 
-      if (rxValue.length() > 0) {
-        Serial.println("Received message");
+  Serial.println(F("Memory after wifi setup"));
+  Serial.println(ESP.getFreeHeap());
 
-        printString(rxValue);
+  Firebase.begin("smartplant-df86c.firebaseio.com", "oFbdyoTQz3t3zTlX6SlDPQoYJXlRap4uq06kBu5m");
+}
 
-        if (rxValue.find("ssid") != -1) {
-          Serial.println("SSID: ");
-          rxValue.erase(0, 4);
-          strcpy(ssid, rxValue.c_str());
-          printString(rxValue);
-        }
-        else if (rxValue.find("pass") != -1) {
-          Serial.println("Password: ");
-          rxValue.erase(0, 4);
-          strcpy(password, rxValue.c_str());
-          printString(rxValue);
+void setupBluetooth () {
+  class Callbacks: public BLECharacteristicCallbacks {
+     void onWrite(BLECharacteristic *pCharacteristic) {
+       string rxValue = pCharacteristic->getValue();
 
-          saveSettings();
+       if (rxValue.length() > 0) {
+         Serial.println("Received message");
 
-          Serial.println("Saved settings");
+         printString(rxValue);
 
-          messageQueue.push("ssav");
-        }
-      }
-    }
-};
+         if (rxValue.find("ssid") != -1) {
+           Serial.println("SSID: ");
+           rxValue.erase(0, 4);
+           // strcpy(ssid, rxValue.c_str());
+           printString(rxValue);
+         }
+         else if (rxValue.find("pass") != -1) {
+           Serial.println("Password: ");
+           rxValue.erase(0, 4);
+           // strcpy(password, rxValue.c_str());
+           printString(rxValue);
 
-void setup() {
-  Serial.begin(115200);
+           saveSettings();
 
-  if (!EEPROM.begin(EEPROM_SIZE))
-  {
-    Serial.println("failed to initialise EEPROM"); delay(1000000);
+           Serial.println("Saved settings");
+
+           // messageQueue.push("ssav");
+         }
+       }
+     }
   };
 
   // Create the BLE Device
@@ -115,17 +143,17 @@ void setup() {
   BLEService *pService = pServer->createService(SERVICE_UUID);
 
   // Create a BLE Characteristic
-  pCharacteristic = pService->createCharacteristic(
-    CHARACTERISTIC_UUID_TX,
-    BLECharacteristic::PROPERTY_NOTIFY
-  );
-
-  pCharacteristic->addDescriptor(new BLE2902());
+  //   pCharacteristic = pService->createCharacteristic(
+  //     CHARACTERISTIC_UUID_TX,
+  //     BLECharacteristic::PROPERTY_NOTIFY
+  //   );
+  //
+  //   pCharacteristic->addDescriptor(new BLE2902());
 
   BLECharacteristic *pCharacteristic = pService->createCharacteristic(
-                                         CHARACTERISTIC_UUID_RX,
-                                         BLECharacteristic::PROPERTY_WRITE
-                                       );
+                                        CHARACTERISTIC_UUID_RX,
+                                        BLECharacteristic::PROPERTY_WRITE
+                                      );
 
   pCharacteristic->setCallbacks(new Callbacks());
 
@@ -134,20 +162,112 @@ void setup() {
 
   // Start advertising
   pServer->getAdvertising()->start();
-  Serial.println("Waiting a client connection to notify...");
+
+  Serial.println(F("memory after bluetooth"));
+  Serial.println(ESP.getFreeHeap());
+
+  Serial.println(F("Waiting a client connection to notify..."));
+};
+
+void setup() {
+
+  Serial.begin(115200);
+
+  Serial.println(F("memory after serial"));
+  Serial.println(ESP.getFreeHeap());
+
+
+  if (mode == 0) setupBluetooth();
+  if (mode == 1) setupWifi();
+
+  if (!EEPROM.begin(EEPROM_SIZE))
+  {
+    Serial.println(F("failed to initialise EEPROM")); delay(1000000);
+  };
+
+  Serial.println(F("memory after EEPROM"));
+  Serial.println(ESP.getFreeHeap());
 }
 
 void loop() {
-  if (!messageQueue.empty()) {
-    // for (int i = 0; i < messageQueue.size(); i++) {
-    Serial.println("Value from message queue:");
-    Serial.println(messageQueue.front().c_str());
+  if (mode == 1) {
+  if ((WiFi.status() == WL_CONNECTED)) { //Check the current connection status
+    Serial.println(F("memory after wifi connected"));
+    Serial.println(ESP.getFreeHeap());
 
-    pCharacteristic->setValue(messageQueue.front());
-    pCharacteristic->notify();
+    Firebase.setInt("foo", 15);
 
-    messageQueue.pop();
+    if (Firebase.failed()) {
+      Serial.print("setting /number failed:");
+      Serial.println(Firebase.error());
+      return;
+  }
+    // if (!client.connect(host, httpsPort)) {
+    // Serial.println(F("connection failed"));
+
+
+    // return;
+}
+
+  // if (client.verify(fingerprint, host)) {
+  //   Serial.println("certificate matches");
+  // } else {
+  //   Serial.println("certificate doesn't match");
+  // }
+  //
+  // String url = "/repos/esp8266/Arduino/commits/master/status";
+  // Serial.print("requesting URL: ");
+  // Serial.println(url);
+  //
+  // client.print(String("GET ") + url + " HTTP/1.1\r\n" +
+  //              "Host: " + host + "\r\n" +
+  //              "User-Agent: BuildFailureDetectorESP8266\r\n" +
+  //              "Connection: close\r\n\r\n");
+  //
+  // Serial.println("request sent");
+  // while (client.connected()) {
+  //   String line = client.readStringUntil('\n');
+  //   if (line == "\r") {
+  //     Serial.println("headers received");
+  //     break;
+  //   }
+  // }
+  // String line = client.readStringUntil('\n');
+  // if (line.startsWith("{\"state\":\"success\"")) {
+  //   Serial.println("esp8266/Arduino CI successfull!");
+  // } else {
+  //   Serial.println("esp8266/Arduino CI has failed");
+  // }
+  // Serial.println("reply was:");
+  // Serial.println("==========");
+  // Serial.println(line);
+  // Serial.println("==========");
+  // Serial.println("closing connection");
+  // }
+  //
+  //
+  // Serial.println(F("memory after https"));
+  // Serial.println(ESP.getFreeHeap());
+
+  // if (!messageQueue.empty()) {
+  //   // char msg = messageQueue.front()
+  //   // for (int i = 0; i < messageQueue.size(); i++) {
+  //   Serial.println("Value from message queue:");
+  //   Serial.println(messageQueue.front().c_str());
+  //
+  //   // if (msg.compare("ssav")) {
+  //   //   Serial.println("Setting up WIFI");
+  //   //
+  //   // }
+  //
+  //   pCharacteristic->setValue(messageQueue.front());
+  //   pCharacteristic->notify();
+  //
+  //   messageQueue.pop();
+  //
+  // }
+
 
   }
-  delay(1000);
+  delay(5000);
 }
