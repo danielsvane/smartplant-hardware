@@ -11,6 +11,10 @@ using std::string;
 using std::queue;
 
 #define EEPROM_SIZE 120
+#define SERVICE_UUID "6E400001-B5A3-F393-E0A9-E50E24DCCA9E"
+#define CHARACTERISTIC_UUID_RX "6E400002-B5A3-F393-E0A9-E50E24DCCA9E"
+#define CHARACTERISTIC_UUID_TX "6E400003-B5A3-F393-E0A9-E50E24DCCA9E"
+#define RESET_PIN 14
 
 struct Settings {
   char mode[5];
@@ -26,9 +30,6 @@ BLECharacteristic *pCharacteristic;
 
  // queue<string> messageQueue;
 
-#define SERVICE_UUID           "6E400001-B5A3-F393-E0A9-E50E24DCCA9E"
-#define CHARACTERISTIC_UUID_RX "6E400002-B5A3-F393-E0A9-E50E24DCCA9E"
-#define CHARACTERISTIC_UUID_TX "6E400003-B5A3-F393-E0A9-E50E24DCCA9E"
 
 
 void saveSettings() {
@@ -41,12 +42,14 @@ void loadSettings() {
 };
 
 void clearSettings() {
-  Serial.print("EEPROM length: ");
-  Serial.println(EEPROM.length());
+  Serial.println(F("Clearing EEPROM"));
+  detachInterrupt(RESET_PIN); // Detach interrupt for debouncing
   for (int i = 0 ; i < EEPROM_SIZE ; i++) {
     EEPROM.write(i, 0);
   }
   EEPROM.commit();
+  Serial.println(F("EEPROM cleared, resetting"));
+  ESP.restart();
 }
 
  void printString(string value) {
@@ -177,8 +180,13 @@ void setup() {
 
   loadSettings();
 
+  // If mode has been set to wifi in settings, start wifi, otherwise bluetooth
   if (strcmp(settings.mode, "wifi") == 0) setupWifi();
   else setupBluetooth();
+
+  // Setup interrupt for clearing EEPROM and resetting
+  pinMode(RESET_PIN, INPUT_PULLUP);
+  attachInterrupt(digitalPinToInterrupt(RESET_PIN), clearSettings, FALLING);
 }
 
 void loop() {
