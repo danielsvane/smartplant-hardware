@@ -52,12 +52,18 @@ void clearSettings() {
   ESP.restart();
 }
 
- void printString(string value) {
-   for (int i = 0; i < value.length(); i++) {
-     Serial.print(value[i]);
-   }
-   Serial.println();
- };
+void printString(string value) {
+  for (int i = 0; i < value.length(); i++) {
+    Serial.print(value[i]);
+  }
+  Serial.println();
+};
+
+void setColor (int red, int green, int blue) {
+  digitalWrite(25, red);
+  digitalWrite(26, green);
+  digitalWrite(27, blue);
+};
 
 void setupWifi() {
   WiFi.begin(settings.ssid, settings.password);
@@ -76,6 +82,8 @@ void setupWifi() {
   Serial.println(ESP.getFreeHeap());
 
   Firebase.begin("smartplant-df86c.firebaseio.com", "oFbdyoTQz3t3zTlX6SlDPQoYJXlRap4uq06kBu5m");
+
+  setColor(LOW, LOW, HIGH);
 }
 
 void setupBluetooth () {
@@ -159,9 +167,17 @@ void setupBluetooth () {
   Serial.println(ESP.getFreeHeap());
 
   Serial.println(F("Waiting a client connection to notify..."));
+
+  setColor(LOW, HIGH, LOW);
 };
 
 void setup() {
+
+  pinMode(25, OUTPUT);
+  pinMode(26, OUTPUT);
+  pinMode(27, OUTPUT);
+
+  setColor(HIGH, LOW, HIGH);
 
   Serial.begin(115200);
 
