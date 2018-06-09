@@ -28,13 +28,16 @@ Settings settings;
 
 BLECharacteristic *pCharacteristic;
 
- // queue<string> messageQueue;
+queue<string> messageQueue;
 
 
 
 void saveSettings() {
-   EEPROM.put(0, settings);
-   EEPROM.commit();
+  Serial.println(F("Saving to EEPROM"));
+  EEPROM.put(0, settings);
+  EEPROM.commit();
+  Serial.println(F("Saved to EEPROM, resetting"));
+  ESP.restart();
 };
 
 void loadSettings() {
@@ -125,9 +128,10 @@ void setupBluetooth () {
            printString(rxValue);
          } else if (rxValue.compare(0, 4, "ssav") == 0) {
            strcpy(settings.mode, "wifi");
-           saveSettings();
-           Serial.println("Saved settings");
+           // saveSettings();
+           Serial.println("Pushed saving to message queue");
            Serial.println();
+           messageQueue.push("ssav");
          }
        }
      }
@@ -224,26 +228,21 @@ void loop() {
         return;
       }
     }
-
-  // if (!messageQueue.empty()) {
-  //   // char msg = messageQueue.front()
-  //   // for (int i = 0; i < messageQueue.size(); i++) {
-  //   Serial.println("Value from message queue:");
-  //   Serial.println(messageQueue.front().c_str());
-  //
-  //   // if (msg.compare("ssav")) {
-  //   //   Serial.println("Setting up WIFI");
-  //   //
-  //   // }
-  //
-  //   pCharacteristic->setValue(messageQueue.front());
-  //   pCharacteristic->notify();
-  //
-  //   messageQueue.pop();
-  //
-  // }
-
-
   }
-  delay(5000);
+
+  if (!messageQueue.empty()) {
+    string msg = messageQueue.front();
+
+    Serial.println("Value from message queue:");
+    Serial.println(messageQueue.front().c_str());
+
+    if (msg.compare("ssav") == 0) {
+      Serial.println("Setting up WIFI");
+      saveSettings();
+    }
+
+    messageQueue.pop();
+  }
+
+  delay(2000);
 }
