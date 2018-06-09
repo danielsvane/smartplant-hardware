@@ -215,12 +215,16 @@ void loop() {
       Serial.println(F("memory after wifi connected"));
       Serial.println(ESP.getFreeHeap());
 
+      int sensor = analogRead(33);
+      Serial.print(F("Sensor reading: "));
+      Serial.println(sensor);
+
       char url[100];
       sprintf(url, "plants/%s/%s/value", settings.uid, settings.id);
       Serial.print("Firebase path: ");
       Serial.println(url);
 
-      Firebase.setInt(url, 64);
+      Firebase.setInt(url, sensor);
 
       if (Firebase.failed()) {
         Serial.print("setting /number failed:");
