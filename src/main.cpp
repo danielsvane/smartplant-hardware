@@ -30,8 +30,6 @@ BLECharacteristic *pCharacteristic;
 
 queue<string> messageQueue;
 
-
-
 void saveSettings() {
   Serial.println(F("Saving to EEPROM"));
   EEPROM.put(0, settings);
@@ -44,9 +42,14 @@ void loadSettings() {
    EEPROM.get(0, settings);
 };
 
+void restart() {
+  Serial.println(F("Resetting"));
+  ESP.restart();
+}
+
 void clearSettings() {
+  // detachInterrupt(RESET_PIN); // Detach interrupt for debouncing
   Serial.println(F("Clearing EEPROM"));
-  detachInterrupt(RESET_PIN); // Detach interrupt for debouncing
   for (int i = 0 ; i < EEPROM_SIZE ; i++) {
     EEPROM.write(i, 0);
   }
@@ -172,7 +175,7 @@ void setupBluetooth () {
 
   Serial.println(F("Waiting a client connection to notify..."));
 
-  setColor(LOW, HIGH, LOW);
+  setColor(HIGH, LOW, LOW);
 };
 
 void setup() {
@@ -187,6 +190,15 @@ void setup() {
 
   Serial.println(F("memory after serial"));
   Serial.println(ESP.getFreeHeap());
+
+  pinMode(RESET_PIN, INPUT_PULLUP);
+  int val = digitalRead(RESET_PIN); // Read if the button is still pressed
+  Serial.print(F("Button status: "));
+  Serial.println(val);
+  // If button is still pressed, clear EEPROM and reset
+  if (val == 0) {
+    clearSettings();
+  }
 
   if (!EEPROM.begin(EEPROM_SIZE))
   {
@@ -205,8 +217,7 @@ void setup() {
   else setupBluetooth();
 
   // Setup interrupt for clearing EEPROM and resetting
-  pinMode(RESET_PIN, INPUT_PULLUP);
-  attachInterrupt(digitalPinToInterrupt(RESET_PIN), clearSettings, FALLING);
+  attachInterrupt(digitalPinToInterrupt(RESET_PIN), restart, FALLING);
 }
 
 void loop() {
@@ -215,7 +226,7 @@ void loop() {
       Serial.println(F("memory after wifi connected"));
       Serial.println(ESP.getFreeHeap());
 
-      int sensor = analogRead(33);
+      int sensor = analogRead(32);
       Serial.print(F("Sensor reading: "));
       Serial.println(sensor);
 
