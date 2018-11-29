@@ -15,6 +15,7 @@ using std::queue;
 #define CHARACTERISTIC_UUID_RX "6E400002-B5A3-F393-E0A9-E50E24DCCA9E"
 #define CHARACTERISTIC_UUID_TX "6E400003-B5A3-F393-E0A9-E50E24DCCA9E"
 #define RESET_PIN 14
+#define SLEEP_TIME 10000000
 
 struct Settings {
   char mode[5];
@@ -178,6 +179,53 @@ void setupBluetooth () {
   setColor(HIGH, LOW, LOW);
 };
 
+void setupSleep() {
+  esp_sleep_enable_timer_wakeup(SLEEP_TIME);
+  esp_sleep_enable_ext0_wakeup(GPIO_NUM_36, 0);
+  esp_deep_sleep_start();
+}
+
+void sendData() {
+  if ((WiFi.status() == WL_CONNECTED)) { //Check the current connection status
+    Serial.println(F("memory after wifi connected"));
+    Serial.println(ESP.getFreeHeap());
+
+    int sensor = analogRead(32);
+    Serial.print(F("Sensor reading: "));
+    Serial.println(sensor);
+
+    char url[100];
+    sprintf(url, "plants/%s/%s/value", settings.uid, settings.id);
+    Serial.print("Firebase path: ");
+    Serial.println(url);
+
+    Firebase.setInt(url, sensor);
+
+    if (Firebase.failed()) {
+      Serial.print("setting /number failed:");
+      Serial.println(Firebase.error());
+      return;
+    }
+  }
+}
+
+void checkResetButton () {
+  pinMode(36, INPUT_PULLUP);
+  int val = digitalRead(36); // Read if the button is still pressed
+  Serial.print(F("Button status: "));
+  Serial.println(val);
+  // If button is still pressed, clear EEPROM and reset
+  if (val == 0) {
+    Serial.print(F("Button was pressed, checking in 2 seconds again..."));
+    delay(2000);
+    val = digitalRead(36);
+    if (val == 0) {
+      Serial.print(F("Button still pressed, resetting..."));
+      clearSettings();
+    }
+  }
+}
+
 void setup() {
 
   pinMode(25, OUTPUT);
@@ -191,60 +239,31 @@ void setup() {
   Serial.println(F("memory after serial"));
   Serial.println(ESP.getFreeHeap());
 
-  pinMode(RESET_PIN, INPUT_PULLUP);
-  int val = digitalRead(RESET_PIN); // Read if the button is still pressed
-  Serial.print(F("Button status: "));
-  Serial.println(val);
-  // If button is still pressed, clear EEPROM and reset
-  if (val == 0) {
-    clearSettings();
-  }
-
   if (!EEPROM.begin(EEPROM_SIZE))
   {
     Serial.println(F("failed to initialise EEPROM")); delay(1000000);
   };
 
-  // clearSettings();
-
   Serial.println(F("memory after EEPROM"));
   Serial.println(ESP.getFreeHeap());
+
+  checkResetButton();
 
   loadSettings();
 
   // If mode has been set to wifi in settings, start wifi, otherwise bluetooth
-  if (strcmp(settings.mode, "wifi") == 0) setupWifi();
+  if (strcmp(settings.mode, "wifi") == 0) {
+    setupWifi();
+    sendData();
+    setupSleep();
+  }
   else setupBluetooth();
 
   // Setup interrupt for clearing EEPROM and resetting
-  attachInterrupt(digitalPinToInterrupt(RESET_PIN), restart, FALLING);
+  // attachInterrupt(digitalPinToInterrupt(RESET_PIN), restart, FALLING);
 }
 
 void loop() {
-  if (strcmp(settings.mode, "wifi") == 0) {
-    if ((WiFi.status() == WL_CONNECTED)) { //Check the current connection status
-      Serial.println(F("memory after wifi connected"));
-      Serial.println(ESP.getFreeHeap());
-
-      int sensor = analogRead(32);
-      Serial.print(F("Sensor reading: "));
-      Serial.println(sensor);
-
-      char url[100];
-      sprintf(url, "plants/%s/%s/value", settings.uid, settings.id);
-      Serial.print("Firebase path: ");
-      Serial.println(url);
-
-      Firebase.setInt(url, sensor);
-
-      if (Firebase.failed()) {
-        Serial.print("setting /number failed:");
-        Serial.println(Firebase.error());
-        return;
-      }
-    }
-  }
-
   if (!messageQueue.empty()) {
     string msg = messageQueue.front();
 
